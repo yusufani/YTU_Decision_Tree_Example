@@ -85,7 +85,7 @@ print('Test set:', X_test.shape, y_test.shape)
 # Import math Library
 import math
 import matplotlib.pyplot as plt
-
+import matplotlib.colors as mcolors
 
 # In[ ]:
 
@@ -93,6 +93,7 @@ import matplotlib.pyplot as plt
 class DecisionTree():
     def __init__(self):
         self.tree = None
+        self.colors = list(mcolors.CSS4_COLORS)
 
     def __entropy__(self, data):
         values, counts = np.unique(data, return_counts=True)
@@ -116,7 +117,7 @@ class DecisionTree():
 
         """
         max_gain["left_part"] = self.__create_node(left_part)
-        
+
 
         # Right part may not contains any element So we can give class directly
         max_gain["right_part"] = self.__create_node(right_part)
@@ -243,48 +244,69 @@ class DecisionTree():
 
         print("accuracy", accuracy / len(X_test))
 
-    def visualize_node(self, ax, node, depth, child_no, column_names, max_depth):
+    def visualize_node(self, ax, node, depth, child_no, column_names, max_depth ,parent_cor=None):
         if depth > max_depth:
             return
-        if type(node) == dict:
-            textstr = '\n'.join([
-                "Threshold:" + str(node["condition"]["splitting_point"]),
-                "Feature:\n" + column_names[node["condition"]["column_id"]],
-
-            ]
-            )
-        else:
-            textstr = "Class:" + str(node),
-
-        # these are matplotlib.patch.Patch properties
-        props = dict(boxstyle='round', facecolor='wheat', alpha=1)
-
-        distances = 1.0 / 2 ** (depth-1)
+        left_margin = 1.0 / 2 ** (depth) - 0.011 # Some adjustment
+        distances = 1 / (2 ** (depth - 1))
         print("depth ", depth)
+        print("left_margin : ", left_margin)
         print("distances : ", distances)
         print("child_no : ", child_no)
 
-        x = distances + (distances * child_no ) - 0.05
+        x = left_margin + (distances * child_no)
         print("X: ", x)
 
-        y = (1 - depth / 8 ) +  0.1
-        print("Y: ", y)
+
         print(50 * "*")
-        # place a text box in upper left in axes coords
-        ax.text(x, y, textstr, transform=ax.transAxes, fontsize=10,
-                verticalalignment='top', bbox=props)
+        y = (1 - depth / 8) + 0.1
+        print("Y: ", y)
 
-        self.visualize_node(ax, node["left"], depth + 1, child_no, column_names, max_depth)
-        self.visualize_node(ax, node["right"], depth + 1, child_no + 1, column_names, max_depth)
+        if type(node) == dict:
+            textstr = '\n'.join([
+                "TH:" + str(node["condition"]["splitting_point"]),
+                "Ft:\n" + column_names[node["condition"]["column_id"]],
 
-    def visualize_tree(self, column_names, max_depth=4):
+            ]
+            )
+            # these are matplotlib.patch.Patch properties
+            props = dict(boxstyle='Round4', facecolor=self.colors[depth], alpha=1 , edgecolor='0.7')
+            # place a text box in upper left in axes coords
+            ax.text(x, y, textstr, transform=ax.transAxes, fontsize=8,
+                    verticalalignment='top', bbox=props , color='black')
+            if depth != 1 :
+                self.__make_circle__(ax,parent_cor[0],parent_cor[1],x,y)
+        else:
+            textstr = "Class:\n" + str(node)
+            props = dict(boxstyle='sawtooth', facecolor='red', alpha=1)
+            ax.text(x, y, textstr, transform=ax.transAxes, fontsize=8,
+                    verticalalignment='top', bbox=props, color='white')
+            if depth != 1:
+                self.__make_circle__(ax,parent_cor[0],parent_cor[1],x,y)
 
-        plt.figure(figsize=(50, 50))
-        fig, ax = plt.subplots(figsize=(10, 10), dpi=300)
-        ax.plot([0, 100], [0, 100])
+
+        if type(node) == dict:
+            self.visualize_node(ax, node["left"], depth + 1, 2*child_no, column_names, max_depth , parent_cor=[x,y])
+            self.visualize_node(ax, node["right"], depth + 1, 2*child_no + 1, column_names, max_depth , parent_cor=[x,y])
+
+    def visualize_tree(self, column_names, max_depth=6 , fig_size=(20,5) , dpi = 500):
+        plt.rcParams['axes.facecolor'] = '#080319'
+        fig, ax = plt.subplots(figsize=fig_size, dpi=dpi)
+        #ax.axis("off")
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        ax.tick_params(bottom=False, labelbottom=False,
+                       left=False, labelleft=False)
         self.visualize_node(ax, self.tree, 1, 0, column_names, max_depth)
+        plt.savefig("Graph.jpg")
 
         plt.show()
+
+    def __make_circle__(self, ax , x2, y2, x1, y1):
+        ax.annotate('', xy=(x1+0.01, y1), xycoords='axes fraction', xytext=(x2+0.01, y2-0.08),
+                    arrowprops=dict(arrowstyle="->", color='white'))
+
+
 
 
 # %%
@@ -297,133 +319,3 @@ dec_tree.predict(X_test, y_test)
 # %%
 dec_tree.visualize_tree(column_names)
 
-# %%
-"""
-
-'''
-# Define the calculate entropy function
-def calculate_entropy(df_label):
-    classes, class_counts = np.unique(df_label, return_counts=True)
-    entropy_value = np.sum([(-class_counts[i] / np.sum(class_counts)) * np.log2(class_counts[i] / np.sum(class_counts))
-                            for i in range(len(classes))])
-    return entropy_value
-
-
-# Define the calculate information gain function
-def calculate_information_gain(dataset, feature, label):
-    # Calculate the dataset entropy
-    dataset_entropy = calculate_entropy(dataset[label])
-    values, feat_counts = np.unique(dataset[feature], return_counts=True)
-
-    # Calculate the weighted feature entropy                                # Call the calculate_entropy function
-    weighted_feature_entropy = np.sum(
-        [(feat_counts[i] / np.sum(feat_counts)) * calculate_entropy(dataset.where(dataset[feature]
-                                                                                  == values[i]).dropna()[label]) for i
-         in range(len(values))])
-    feature_info_gain = dataset_entropy - weighted_feature_entropy
-    return feature_info_gain
-
-
-def create_decision_tree( dataset, df, features, label, parent):
-    df_datum = np.unique(df[label], return_counts=True)
-    dataset_unique_data = np.unique(dataset[label])
-
-    if len(dataset_unique_data) >= 1:
-        return dataset_unique_data[0]
-    elif len(dataset) == 0:
-        return dataset_unique_data[np.argmax(df_datum[1])]
-    elif len(features) == 0:
-        return parent
-    else:
-        parent = dataset_unique_data[np.argmax(df_datum[1])]
-
-        item_values = [calculate_information_gain(dataset, feature, label) for feature in features]
-
-        optimum_feature_index = np.argmax(item_values)
-        optimum_feature = features[optimum_feature_index]
-        decision_tree = {optimum_feature: {}}
-        features = [i for i in features if i != optimum_feature]
-        for value in np.unique(dataset[optimum_feature]):
-            min_data = dataset.where(dataset[optimum_feature] == value).dropna()
-            min_tree = create_decision_tree(min_data, df, features, label, parent)
-            decision_tree[optimum_feature][value] = min_tree
-
-        return (decision_tree)
-
-
-# Set the features and label
-features = df.columns[:-1]
-label = 'custcat'
-parent = None
-
-# Train the decision tree model
-decision_tree = create_decision_tree(df, df, features, label, parent)
-
-# Predict using the trained model
-sample_data = {'glucose': 86, 'bloodpressure': 104}
-test_data = pd.Series(sample_data)
-'''
-'''
-prediction = predict_diabetes(test_data,decision_tree)
-prediction
-'''
-
-# In[ ]:
-dec_tree = DecisionTree()
-
-trees = dec_tree.fit(X_train, y_train)
-
-# In[ ]:
-"""
-"""
-from sklearn.tree import DecisionTreeClassifier
-
-from sklearn.metrics import confusion_matrix
-
-
-decisiontree = DecisionTreeClassifier(random_state=0)
-model = decisiontree.fit(X_train, y_train)
-
-target_predicted=model.predict(X_test)
-print("Accuracy", model.score(X_test, y_test))
-
-matrix = confusion_matrix(y_test, target_predicted)
-print("Class Confusion Matrix\n", matrix)
-
-# create decision tree classifier using entropy
-decisiontree_entropy = DecisionTreeClassifier(criterion='entropy', random_state=0)
-
-model_entropy = decisiontree_entropy.fit(X_train, y_train)
-
-target_predicted=model_entropy.predict(X_test)
-print("Accuracy", model_entropy.score(X_test, y_test))
-
-matrix = confusion_matrix(y_test, target_predicted)
-print("Class Confusion Matrix\n", matrix)
-from sklearn import tree
-fig = plt.figure(figsize=(25,20))
-
-tree.plot_tree(decisiontree_entropy,
-
-                   filled=True)
-
-fig.show()
-"""
-"""
-# In[ ]:
-
-
-#
-# 
-# ##  Visualizing a Decision Tree Model
-
-# In[ ]:
-
-
-import pydotplus
-from sklearn.tree import DecisionTreeClassifier
-from IPython.display import Image
-from sklearn import tree
-
-## Write your own code to visualize tree with 4 levels
-"""
