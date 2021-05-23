@@ -2,6 +2,8 @@
 
 **In this project, the decision tree is implemented and visualized without using any other libraries like sklearn.**
 
+####Usage
+Simply run Trees and Forests.ipynb from jupyter supported platform like Jupyter Notebook
 
 #### Example Visulasition Outputs : 
 
